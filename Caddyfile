@@ -1,4 +1,4 @@
-example.com, www.example.com {
+guildtrend.ru, www.guildtrend.ru {
     encode gzip zstd
     reverse_proxy web:8000
 }
