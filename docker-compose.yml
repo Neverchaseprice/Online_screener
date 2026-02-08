@@ -10,19 +10,19 @@ services:
       - "8000"
     restart: unless-stopped
 
-  # caddy:
-  #   image: caddy:2.8-alpine
-  #   container_name: pivot-screener-caddy
-  #   depends_on:
-  #     - web
-  #   ports:
-  #     - "80:80"
-  #     - "443:443"
-  #   volumes:
-  #     - ./Caddyfile:/etc/caddy/Caddyfile:ro
-  #     - caddy_data:/data
-  #     - caddy_config:/config
-  #   restart: unless-stopped
+  caddy:
+    image: caddy:2.8-alpine
+    container_name: pivot-screener-caddy
+    depends_on:
+      - web
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
 
 volumes:
   caddy_data:
