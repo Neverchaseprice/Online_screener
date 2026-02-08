@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pivot Screener - Trading Dashboard</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📊 Pivot Screener</h1>
+            <p class="subtitle">Анализ трендов и расчет пивот-зон для торговых инструментов</p>
+        </header>
+
+        <form method="POST" action="/generate" class="control-panel">
+            <div class="form-group">
+                <label><strong>Выберите активы:</strong></label>
+                <div class="assets-grid">
+                    {% for category, assets in assets_by_category.items() %}
+                    <div class="asset-category">
+                        <h3>{{ category }}</h3>
+                        {% for asset in assets %}
+                        <label class="asset-checkbox">
+                            <input type="checkbox" 
+                                   name="selected_assets" 
+                                   value="{{ asset.ticker }}"
+                                   {% if asset.ticker in selected_assets %}checked{% endif %}>
+                            <span>{{ asset.name }} ({{ asset.ticker }})</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label><strong>Формула расчета Weighted Score:</strong></label>
+                <select name="formula_type" class="formula-select">
+                    {% for key, value in formula_types.items() %}
+                    <option value="{{ key }}" {% if key == selected_formula %}selected{% endif %}>
+                        {{ value }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <button type="submit" class="btn-generate">🔄 Обновить данные и сгенерировать графики</button>
+            
+            <!-- Новая кнопка для дашборда трендов -->
+            <button type="submit" formaction="/generate_trends" class="btn-trends">
+                📊 Построить Дашборд по Трендам
+            </button>
+        </form>
+
+        {% if generated_at %}
+        <div class="generation-info">
+            <p>📅 Последнее обновление: <strong>{{ generated_at }}</strong></p>
+            {% if charts %}
+            <p>📈 Сгенерировано графиков: <strong>{{ charts|length }}</strong></p>
+            {% endif %}
+            {% if dashboard_data %}
+            <p>📊 Проанализировано активов для дашборда: <strong>{{ dashboard_data|length }}</strong></p>
+            {% endif %}
+            {% if errors %}
+            <div class="errors">
+                <p>⚠️ Ошибки:</p>
+                <ul>
+                    {% for error in errors %}
+                    <li>{{ error }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Дашборд трендов (появляется после нажатия кнопки) -->
+        {% if dashboard_data %}
+        <div class="trend-dashboard">
+            <h2 class="dashboard-title">📈 Дашборд Трендов (21/55 EMA)</h2>
+            
+            <table class="trend-table">
+                <thead>
+                    <tr>
+                        <th>Актив</th>
+                        <th>1h<br><small>21/55 EMA</small></th>
+                        <th>4h<br><small>21/55 EMA</small></th>
+                        <th>1d<br><small>21/55 EMA</small></th>
+                        <th>1w<br><small>21/55 EMA</small></th>
+                        <th>MidTerm<br><small>4h+1d</small></th>
+                        <th>Global<br><small>1d+1w</small></th>
+                        <th>Strength</th>
+                        <th>RSI<br><small>14d</small></th>
+                        <th>Price vs<br><small>200 EMA (4h)</small></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for asset in dashboard_data %}
+                    <tr class="{{ 'bullish-row' if asset.trend_1d == 'bullish' else 'bearish-row' if asset.trend_1d == 'bearish' else '' }}">
+                        <td class="asset-name">
+                            <strong>{{ asset.name }}</strong><br>
+                            <small>{{ asset.ticker }}</small>
+                        </td>
+                        <td class="{{ 'trend-bullish' if asset.trend_1h == 'bullish' else 'trend-bearish' if asset.trend_1h == 'bearish' else 'trend-neutral' }}">
+                            {% if asset.trend_1h == 'bullish' %}
+                            <span class="arrow-up">↑</span>
+                            {% elif asset.trend_1h == 'bearish' %}
+                            <span class="arrow-down">↓</span>
+                            {% else %}
+                            <span class="arrow-neutral">→</span>
+                            {% endif %}
+                        </td>
+                        <td class="{{ 'trend-bullish' if asset.trend_4h == 'bullish' else 'trend-bearish' if asset.trend_4h == 'bearish' else 'trend-neutral' }}">
+                            {% if asset.trend_4h == 'bullish' %}
+                            <span class="arrow-up">↑</span>
+                            {% elif asset.trend_4h == 'bearish' %}
+                            <span class="arrow-down">↓</span>
+                            {% else %}
+                            <span class="arrow-neutral">→</span>
+                            {% endif %}
+                        </td>
+                        <td class="{{ 'trend-bullish' if asset.trend_1d == 'bullish' else 'trend-bearish' if asset.trend_1d == 'bearish' else 'trend-neutral' }}">
+                            {% if asset.trend_1d == 'bullish' %}
+                            <span class="arrow-up">↑</span>
+                            {% elif asset.trend_1d == 'bearish' %}
+                            <span class="arrow-down">↓</span>
+                            {% else %}
+                            <span class="arrow-neutral">→</span>
+                            {% endif %}
+                        </td>
+                        <td class="{{ 'trend-bullish' if asset.trend_1w == 'bullish' else 'trend-bearish' if asset.trend_1w == 'bearish' else 'trend-neutral' }}">
+                            {% if asset.trend_1w == 'bullish' %}
+                            <span class="arrow-up">↑</span>
+                            {% elif asset.trend_1w == 'bearish' %}
+                            <span class="arrow-down">↓</span>
+                            {% else %}
+                            <span class="arrow-neutral">→</span>
+                            {% endif %}
+                        </td>
+                        <td class="{{ 'trend-bullish' if asset.mid_term == 'bullish' else 'trend-bearish' if asset.mid_term == 'bearish' else '' }}">
+                            {% if asset.mid_term %}
+                            <span class="trend-label">{{ asset.mid_term|capitalize }}</span>
+                            {% else %}
+                            <span class="trend-none">-</span>
+                            {% endif %}
+                        </td>
+                        <td class="{{ 'trend-bullish' if asset.global_trend == 'bullish' else 'trend-bearish' if asset.global_trend == 'bearish' else '' }}">
+                            {% if asset.global_trend %}
+                            <span class="trend-label">{{ asset.global_trend|capitalize }}</span>
+                            {% else %}
+                            <span class="trend-none">-</span>
+                            {% endif %}
+                        </td>
+                        <td class="{{ 'trend-strong' if asset.strength == 'STRONG' else '' }}">
+                            {% if asset.strength %}
+                            <span class="strength-badge">{{ asset.strength }}</span>
+                            {% else %}
+                            <span class="trend-none">-</span>
+                            {% endif %}
+                        </td>
+                        <td class="{{ 'rsi-overbought' if asset.rsi_14d and asset.rsi_14d > 70 else 'rsi-oversold' if asset.rsi_14d and asset.rsi_14d < 30 else '' }}">
+                            {% if asset.rsi_14d is not none %}
+                            <span class="rsi-value">{{ "%.1f"|format(asset.rsi_14d) }}</span>
+                            {% else %}
+                            <span class="trend-none">-</span>
+                            {% endif %}
+                        </td>
+                        <td class="{{ 'price-above' if asset.price_vs_200ema_4h == 'above' else 'price-below' if asset.price_vs_200ema_4h == 'below' else '' }}">
+                            {% if asset.price_vs_200ema_4h == 'above' %}
+                            <span class="price-label">Above</span>
+                            {% elif asset.price_vs_200ema_4h == 'below' %}
+                            <span class="price-label">Below</span>
+                            {% else %}
+                            <span class="trend-none">-</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            
+            <div class="trend-legend">
+                <div class="legend-item">
+                    <span class="arrow-up">↑</span> = 21 EMA > 55 EMA (Бычий тренд)
+                </div>
+                <div class="legend-item">
+                    <span class="arrow-down">↓</span> = 21 EMA < 55 EMA (Медвежий тренд)
+                </div>
+                <div class="legend-item">
+                    <span class="trend-label">Bullish</span> / <span class="trend-label">Bearish</span> = Совпадение трендов на 4h и 1d (MidTerm) или 1d и 1w (Global)
+                </div>
+                <div class="legend-item">
+                    <span class="strength-badge">STRONG</span> = MidTerm = Global (сильный тренд)
+                </div>
+                <div class="legend-item">
+                    <span class="rsi-value">RSI</span> > 70 = Перекупленность, < 30 = Перепроданность
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="charts-container">
+            {% for chart in charts %}
+            <div class="chart-card">
+                <div class="chart-header">
+                    <h2>{{ chart.data.name }} ({{ chart.data.ticker }})</h2>
+                    <div class="score-badge {{ 'bullish' if chart.data.trend_mode == 'bullish' else 'bearish' }}">
+                        <span class="score-value">{{ "%.2f"|format(chart.data.weighted_score) }}</span>
+                        <span class="score-label">{{ chart.data.trend_mode|capitalize }}</span>
+                    </div>
+                </div>
+                
+                <!-- КРИТИЧЕСКИ ВАЖНО: добавлен префикс data:image/png;base64, -->
+                <div class="chart-image">
+                    <img src="data:image/png;base64,{{ chart.image }}" alt="{{ chart.data.name }}">
+                </div>
+                
+                <div class="chart-details">
+                    <div class="details-row">
+                        <div class="detail-item">
+                            <span class="detail-label">Формула:</span>
+                            <span class="detail-value">{{ formula_types[chart.data.formula_type] }}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="details-row">
+                        <div class="detail-item">
+                            <span class="detail-label">1D Score:</span>
+                            <span class="detail-value score-{{ chart.data.scores['1d'] }}">{{ chart.data.scores['1d'] }}/5</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">4H Score:</span>
+                            <span class="detail-value score-{{ chart.data.scores['4h'] }}">{{ chart.data.scores['4h'] }}/5</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">1H Score:</span>
+                            <span class="detail-value score-{{ chart.data.scores['1h'] }}">{{ chart.data.scores['1h'] }}/5</span>
+                        </div>
+                    </div>
+                    
+                    {% if chart.data.stop_loss is defined %}
+                    <div class="details-row stop-loss-info">
+                        <div class="detail-item">
+                            <span class="detail-label">Entry (Mid):</span>
+                            <span class="detail-value">{{ "%.2f"|format(chart.data.entry_mid) }}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Stop Loss:</span>
+                            <span class="detail-value stop-loss">{{ "%.2f"|format(chart.data.stop_loss) }}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Target:</span>
+                            <span class="detail-value target">{{ "%.2f"|format(chart.data.target) }}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">RR Ratio:</span>
+                            <span class="detail-value rr-ratio">1:{{ "%.2f"|format(chart.data.rr_ratio) }}</span>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <script src="/static/script.js"></script>
+</body>
+</html>
